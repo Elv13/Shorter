@@ -11,6 +11,8 @@ local awful        = require "awful"
 local wibox        = require( "wibox"       )
 local beautiful    = require( "beautiful"   )
 local glib         = require( "lgi"         ).GLib
+local cairo        = require( "lgi"         ).cairo
+local color        = require( "gears.color" )
 local capi         = {root=root,screen=screen}
 
 local shorter = {__real = {}, __pretty={}}
@@ -24,13 +26,44 @@ local function limit_fit(l,w)
     end
 end
 
+local function draw_rounded(cr,x,y,w,h,radius)
+    cr:save()
+    cr:translate(x,y)
+    cr:move_to(0,radius)
+    cr:arc(radius,radius,radius,math.pi,3*(math.pi/2))
+    cr:arc(w-radius,radius,radius,3*(math.pi/2),math.pi*2)
+    cr:arc(w-radius,h-radius,radius,math.pi*2,math.pi/2)
+    cr:arc(radius,h-radius,radius,math.pi/2,math.pi)
+    cr:close_path()
+    cr:restore()
+end
+
 local function create_wibox()
     local geo = capi.screen[1].geometry
     local w = wibox {x=geo.x + 50,y=geo.y+50,width=geo.width-100,height=geo.height-100}
     local left = geo.width
     w.visible = true
-    w:set_bg("#000022")
-    w:set_fg("#ff0000")
+    w:set_fg(color(beautiful.shorter_fg or beautiful.fg_normal))
+
+    local img = cairo.ImageSurface.create(cairo.Format.ARGB32, geo.width, geo.height)
+    local cr  = cairo.Context(img)
+    cr:set_source_rgba(0,0,0,0)
+    cr:paint()
+    cr:set_source_rgb(1,1,1)
+    draw_rounded(cr,0,0,geo.width-100,geo.height-100,15)
+    cr:fill()
+    w.shape_bounding = img._native
+
+    local bg = cairo.ImageSurface.create(cairo.Format.ARGB32, geo.width, geo.height)
+    local cr  = cairo.Context(bg)
+    cr:set_source(color(beautiful.shorter_border_color or beautiful.border_color or beautiful.fg_normal))
+    cr:paint()
+    draw_rounded(cr,3,3,geo.width-100-6,geo.height-100-6,14)
+    cr:set_source(color(beautiful.shorter_bg or beautiful.bg_normal))
+    cr:fill()
+
+    w:set_bg(cairo.Pattern.create_for_surface(bg))
+
     return w, left,geo.height
 end
 
@@ -89,7 +122,12 @@ end
 local function show()
     local w,left,height = create_wibox()
 
+    local margins = wibox.layout.margin()
+    margins:set_margins(20)
+    left,height = left-40,height-40
+
     local l = wibox.layout.fixed.horizontal()
+    margins:set_widget(l)
 
     local cols = {}
 
@@ -121,7 +159,7 @@ local function show()
         left = left - width
     end
 
-    w:set_widget(l)
+    w:set_widget(margins)
 end
 
 glib.idle_add(glib.PRIORITY_HIGH_IDLE, function()

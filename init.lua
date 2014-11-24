@@ -41,7 +41,7 @@ end
 local function create_wibox()
     local geo = capi.screen[1].geometry
     local w = wibox {x=geo.x + 50,y=geo.y+50,width=geo.width-100,height=geo.height-100}
-    local left = geo.width
+    local left = geo.width-150
     w.visible = true
     w:set_fg(color(beautiful.shorter_fg or beautiful.fg_normal))
 
@@ -119,15 +119,46 @@ local function gen_groups_widgets()
     return ret
 end
 
+local function wrap_button(wdg)
+    local bg = wibox.widget.background()
+    bg:set_bg(color(beautiful.shorter_fg or beautiful.fg_normal))
+    bg:set_fg(color(beautiful.shorter_bg or beautiful.bg_normal))
+    bg:set_widget(wdg)
+    return bg
+end
+
+local function create_header(w)
+    local l = wibox.layout.align.horizontal()
+    local close = wibox.widget.textbox("<tt> CLOSE [X] </tt>")
+    close:buttons(awful.util.table.join(
+        awful.button({ }, 1, function (c) w.visible = false end)
+    ))
+    l:set_right(wrap_button(close))
+
+    local ll = wibox.layout.fixed.horizontal()
+    ll:add(wrap_button(wibox.widget.textbox("<tt> SHORTCUTS </tt>")))
+    ll:add(wibox.widget.textbox(" "))
+    ll:add(wrap_button(wibox.widget.textbox("<tt> KEYBOARD </tt>")))
+    l:set_left(ll)
+    return l
+end
+
 local function show()
     local w,left,height = create_wibox()
 
     local margins = wibox.layout.margin()
-    margins:set_margins(20)
-    left,height = left-40,height-40
+    margins:set_top   (5)
+    margins:set_bottom(20)
+    margins:set_left  (20)
+    margins:set_right (20)
+    left,height = left-40,height-50
+
+    local la = wibox.layout.fixed.vertical()
 
     local l = wibox.layout.fixed.horizontal()
-    margins:set_widget(l)
+    la:add(create_header(w))
+    la:add(l)
+    margins:set_widget(la)
 
     local cols = {}
 
@@ -144,7 +175,6 @@ local function show()
             local best,dx = nil,99999
             for k,v in ipairs(cols) do
                 local cw = v.width
-                print("HERE",v.height , group.height,v.height + group.height < height)
                 if cw > width and (width-cw) < dx and v.height + group.height < height - 100 then
                     dx = width-cw
                     best = v
@@ -157,6 +187,9 @@ local function show()
         end
 
         left = left - width
+    end
+    for  idx,group in ipairs(cols) do
+        print("Group",idx,height-group.height)
     end
 
     w:set_widget(margins)
@@ -205,3 +238,5 @@ return setmetatable(shorter,{__newindex=function(self,key,value)
         end
     end
 end})
+
+return shorter
